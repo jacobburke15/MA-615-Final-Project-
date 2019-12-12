@@ -1,0 +1,89 @@
+---
+title: "Final Project Report (AirBNB Data)"
+author: "Jacob Burke"
+date: "11/12/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(gridExtra)
+```
+
+# AirBNB Data Analysis 
+
+# Introduction
+
+The purpose of this analysis and project is to visualize and draw conclusions of the tendencies that AirBNB listings generally follow, in primarily the eastern side of the USA. This report will summarize EDA and EFA that will be run on the combined data of AirBNB listings in Boston, New York, Philadelphia, Washington, Nashville, Miami, and Houston. In addition, for the scenario in which someone would like to easily query AirBNB listings based on mutliple traits, I will look to experiment with building a RSQLite data base for the combined city's listing data. 
+
+```{r, echo = F}
+
+read <- function(data){
+  
+  return(read.csv(data, header = T))
+}
+
+## reading in sampled city listing data 
+
+Boston <- read("Boston_s.csv")
+Houston <- read("Houston_s.csv")
+Miami <- read("Miami_s.csv")
+Nashville <- read("Nashville_s.csv")
+NY <- read("NY_s.csv")
+Philly <- read("Philly_s.csv")
+Washington <- read("Washington_s.csv")
+
+## adding city attributes, we can then combine all city data for analysis
+
+addCity <- function(df, city){
+  return(mutate(df, City = city))
+}
+
+Boston <- addCity(Boston, "Boston")
+Houston <- addCity(Houston, "Houston")
+Miami <- addCity(Miami, "Miami")
+Nashville <- addCity(Nashville, "Nashville")
+NY <- addCity(NY, "New York")
+Philly <- addCity(Philly, "Philadelphia")
+Washington <- addCity(Washington, "Washington")
+
+## dropping columns we won't be using for analysis, so each data frame is of the same value of 
+## variables, and then we can combine data sets 
+
+Boston <- select(Boston, -c(minstay, borough, neighborhood, overall_satisfaction))
+Houston <- select(Houston, -c(survey_id, country, city, borough, minstay, bathrooms, name, location, 
+                              neighborhood, overall_satisfaction))
+Miami <- select (Miami, -c(borough, minstay, neighborhood, overall_satisfaction))
+Nashville <- select(Nashville, -c(survey_id, country, city, borough, bathrooms, minstay, location, 
+                                  neighborhood, overall_satisfaction))
+NY <- select(NY, -c(survey_id, borough, minstay, country, city, name, property_type, location, bathrooms, 
+                    neighborhood, overall_satisfaction))
+Philly <- select(Philly, -c(borough, minstay, neighborhood, overall_satisfaction))
+Washington <- select(Washington, -c(survey_id, country, city, borough, bathrooms, minstay, location, 
+                                    neighborhood, overall_satisfaction))
+
+## Now can combining 
+
+BNB <- rbind(Boston, Houston, Miami, Nashville, NY, Philly, Washington)
+
+```
+
+The data from each city was first cleaned and combined, and the specific code that was used in this process can be found in the Appendix of this report. A preview of the AirBNB listing's data and variable values:
+
+```{r}
+
+head(BNB)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
