@@ -1,0 +1,294 @@
+---
+title: "AirBNB Data Presentation"
+author: "Jacob Burke"
+date: "13/12/2019"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(kableExtra)
+library(dplyr)
+library(gridExtra)
+library(maps)     
+library(mapdata) 
+library(mapview)
+library(Hmisc)
+library(leaflet)
+library(psych)
+library(GPArotation)
+library(nFactors)
+library(DBI)
+library(RSQLite)
+library(png)
+library(grid)
+```
+
+
+## Intro
+
+The purpose of this analysis and project was to visualize and draw conclusions of the tendencies that AirBNB listings generally follow, in primarily the eastern side of the USA. Cities include: 
+
+- Boston 
+- New York
+- Philadelphia 
+- Miami 
+- Nashville
+- Houston
+- Washington DC.
+
+```{r, echo = F}
+
+read <- function(data){
+  
+  return(read.csv(data, header = T))
+}
+
+## reading in sampled city listing data 
+
+Boston <- read("Boston_s.csv")
+Houston <- read("Houston_s.csv")
+Miami <- read("Miami_s.csv")
+Nashville <- read("Nashville_s.csv")
+NY <- read("NY_s.csv")
+Philly <- read("Philly_s.csv")
+Washington <- read("Washington_s.csv")
+
+## adding city attributes, we can then combine all city data for analysis
+
+addCity <- function(df, city){
+  return(mutate(df, City = city))
+}
+
+Boston <- addCity(Boston, "Boston")
+Houston <- addCity(Houston, "Houston")
+Miami <- addCity(Miami, "Miami")
+Nashville <- addCity(Nashville, "Nashville")
+NY <- addCity(NY, "New York")
+Philly <- addCity(Philly, "Philadelphia")
+Washington <- addCity(Washington, "Washington")
+
+## dropping columns we won't be using for analysis, so each data frame is of the same value of 
+## variables, and then we can combine data sets 
+
+Boston <- dplyr::select(Boston, -c(minstay, borough, neighborhood, overall_satisfaction))
+Houston <- dplyr::select(Houston, -c(survey_id, country, city, borough, minstay, bathrooms, name, location, 
+                              neighborhood, overall_satisfaction))
+Miami <- dplyr::select (Miami, -c(borough, minstay, neighborhood, overall_satisfaction))
+Nashville <- dplyr::select(Nashville, -c(survey_id, country, city, borough, bathrooms, minstay, location, 
+                                  neighborhood, overall_satisfaction))
+NY <- dplyr::select(NY, -c(survey_id, borough, minstay, country, city, name, property_type, location, bathrooms, 
+                    neighborhood, overall_satisfaction))
+Philly <- dplyr::select(Philly, -c(borough, minstay, neighborhood, overall_satisfaction))
+Washington <- dplyr::select(Washington, -c(survey_id, country, city, borough, bathrooms, minstay, location, 
+                                    neighborhood, overall_satisfaction))
+
+## Now can combining 
+
+BNB <- rbind(Boston, Houston, Miami, Nashville, NY, Philly, Washington)
+
+```
+
+## Intro cont'd 
+
+This presentation will summarize analysis run on the data. Analysis that was run includes: 
+
+- EDA 
+- EFA
+- Mapping 
+- Database Creation
+
+## The Data 
+
+The data used includes unique id information in the each listing, the review numbers for each listing, how many bedrooms and the number of people it accomodates and more. Columns 1-6: 
+
+```{r}
+
+kable(head(BNB[,1:6])) %>% kable_styling()
+
+```
+
+## The Data 
+
+Remaining columns 7-12: 
+
+```{r}
+
+kable(head(BNB[,7:12])) %>% kable_styling()
+```
+
+## EDA 
+
+Firstly, we wanted to explore the listing price distributions, based on the different cities we have access to. 
+
+```{r}
+
+ggplot(BNB) + geom_density(aes(x = log(price), color = City), size = 1) + ggtitle("Distribution of AirBNB Listing Prices (log scale)")
+
+
+```
+
+## EDA 
+
+We could see from this density plot: 
+
+- Majority of listing prices amongst all cities lie between *[55$ - 245$]* dollars/night. 
+- Houston and Philly have the largest variance and spread in prices overall 
+- Houston data contains the most expensive listings out of all cities. 
+
+
+## EDA 
+
+In addition, we then looked at the distribution of room types amongst cities. 
+
+```{r, echo = F}
+
+ggplot(BNB) + geom_bar(aes(x = BNB$room_type), col = 'black', 
+              fill = 'blue') + labs(y = 'Count', x = 'Room Type') +
+              ggtitle("Room Type by City") + facet_wrap(~City)
+
+
+```
+
+## EDA 
+
+We could see from these histograms: 
+
+- Among entire 7 city data set, more 'Entire home/apt' listings than shared and private rooms combined. 
+- Boston and New York come closest to equal number of 'Entire home/apt' listings and "Private room" listings. 
+
+## EDA 
+
+Finally, taking a look at the distribution of accommodation numbers across all cities.
+
+```{r}
+
+ggplot(BNB) + geom_bar(aes(x = BNB$accommodates), col = 'black', 
+              fill = 'orange') + labs(y = 'Count', x = 'Accommodation Number') +
+              ggtitle("Listing Accomodations by City") + facet_wrap(~City)
+
+
+```
+
+
+## EDA 
+
+From these histograms, we can see: 
+
+- Boston and New York have the highest concentration of listings below 2.5 people accommodating. (helping explain previous visual showing their similar number of 'Entire Homes' to 'Private Rooms' listings 
+
+- Houston has the largest relatively equal spread of listing accommodations, ranging from around 2-10 people. (helping explain the large spread of price in the previous density plot)
+
+## EFA
+
+we will run factor analysis on our numerical variable's in our BNB data, to see if we could hypothetically reduce dimensionality. The numerical variables of interest were: 
+
+- accommodates 
+- bedrooms 
+- reviews 
+- price 
+- longitude 
+- latitude
+
+## EFA 
+
+Given our 6 variables in total, we looked at the results from combining to 3 components, to see how the variables would group together (if at all).
+
+```{r}
+## looking specifically at our numerical variables 
+
+BNB_factor <- dplyr::select(BNB, price, latitude, longitude, accommodates, bedrooms, reviews)
+
+fit <- factanal(BNB_factor, 3, rotation="varimax")
+
+print(fit, digits=2, cutoff=.3, sort=TRUE)
+
+```
+
+## EFA 
+
+- From that output, we could see that 'accommodates' and 'bedrooms' are fairly correlated. This intuitively makes sense, as both are related to how many people can stay in a listing. 
+
+- If we were in a situation where dimension reduction was required, these could certainly be put into one component. We can also see that lattitude and longitude are related (obvious in the sense of map readings), and price, reviews, and bedrooms have also been placed in the third factor. 
+
+## EFA 
+
+Now, looking at the scree plot to determine the optimal number of factors to extract from these variables.
+
+```{r}
+# Determine Number of Factors to Extract
+
+ev <- eigen(cor(BNB_factor)) # get eigenvalues
+ap <- parallel(subject=nrow(BNB_factor),var=ncol(BNB_factor),
+  rep=100,cent=.05)
+nS <- nScree(x=ev$values, aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+
+```
+
+## EFA 
+
+- From the above scree plot, we could see that the optimal number of factors for these six variables would in fact be 3, if we were to reduce dimensions. 
+
+- *However*, from the 'factanal' output above, we can see that the cumulative variance for these three factors only gets to about 60%, so combining into these factors in this scenario is most likely not optimal, as they will not explain enough of the data.
+
+## Mapping 
+
+Now, we want to begin to look further into how these listings are arranged in their respective cities proximity-wise. *(Below is a screenshot of the map created, the interactive leaflet map will be available in the Shiny app along with this presentation)*
+
+```{r}
+
+bounds <- map('state', c('Massachusetts', 'New York', 'Florida', 'Texas', 
+                         'Pennsylvania', 'Tennessee', 'Maryland'), fill=TRUE, plot=FALSE)
+# custom icons
+icons <- awesomeIcons(
+  icon = 'disc',
+  iconColor = 'black',
+  library = 'ion', # Options are 'glyphicon', 'fa', 'ion'.
+  markerColor = 'blue',
+  spin = T, 
+  squareMarker = TRUE,
+  )
+
+map <- leaflet(data = BNB) %>%
+  addProviderTiles("CartoDB.Positron", group = "Map") %>%
+  addProviderTiles("Esri.WorldImagery", group = "Satellite")%>% 
+  addProviderTiles("Esri.WorldShadedRelief", group = "Relief")%>%
+  #addMarkers(~longitude, ~latitude, label = ~room_type, group = "Sites") %>% 
+  addAwesomeMarkers(~longitude, ~latitude, label = ~room_type, group = "Sites", icon=icons) %>%
+  addPolygons(data=bounds, group="States", weight=2, fillOpacity = 0) %>%
+  addScaleBar(position = "bottomleft") %>%
+  addLayersControl(
+    baseGroups = c("Map", "Satellite", "Relief"),
+    overlayGroups = c("Sites", "States"),
+    options = layersControlOptions(collapsed = FALSE),
+  )
+invisible(print(map))
+
+## taking a screen shot of map to output in knitted pdf report
+
+mapshot(map, file = "map.png")
+
+img <- readPNG("map.png")
+grid.raster(img)
+
+## if errror comes up here from mapshot function, 
+## run "webshot::install_phantomjs()" and try again
+
+```
+
+
+
+## SQL Data Base
+
+- In the case where we would like to make listings easily accessible through queries, one way we can do this is by building a RSQLite database. 
+- For this current BNB data, the database would be relatively simple with only two tables needed: 
+
+- Table 1: *listing = (BNB, room_id, host_id, latitude, longitude, City)*
+
+- Table 2: *room = (BNB, room_id, reviews, accommodates, bedrooms, price, room_type)*
+
+- Organizing the data into a database will allow for quick querying, especially for someone not as familiar in R coding, as this allows the querying to then be done in DB browser. 
+
+- Interactive queries will be available in the Shiny app corresponding to this presentation 
